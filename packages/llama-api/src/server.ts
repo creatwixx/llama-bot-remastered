@@ -2,6 +2,8 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import formbody from '@fastify/formbody'
 import prisma from './prisma.js'
+import emoteRoutes from './routes/emotes.js'
+import commandRoutes from './routes/commands.js'
 
 const fastify = Fastify({
   logger: {
@@ -20,6 +22,10 @@ await fastify.register(formbody)
 fastify.get('/health', async (request, reply) => {
   return { status: 'ok', timestamp: new Date().toISOString() }
 })
+
+// Register routes
+await fastify.register(emoteRoutes)
+await fastify.register(commandRoutes)
 
 // Start server
 // Railway uses PORT, fallback to API_PORT or 3000
