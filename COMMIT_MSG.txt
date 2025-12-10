@@ -1,0 +1,18 @@
+feat: setup development environment with dev/prod bot separation
+
+- Add docker-compose.dev.yml for local development with separate dev bot
+- Create start-dev.sh script to properly load dev bot credentials
+- Fix environment variable loading to use .env.local for dev mode
+- Update docker-compose files to support both dev and prod configurations
+- Fix bot to properly load dev bot token from .env.local
+- Add dev bot command registration script (register:dev)
+- Organize all documentation files into docs/ directory
+- Update .gitignore to ignore docs/ directory while keeping README.md
+- Update bot logging to show [DEV] or [PROD] prefixes
+- Configure services to use Railway database by default
+
+Breaking changes:
+- Dev environment now requires .env.local file with dev bot credentials
+- Use ./start-dev.sh to start development environment
+- Documentation files moved to docs/ directory
+

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "register": "bun src/register-commands.ts"
+    "register": "bun src/register-commands.ts",
+    "register:dev": "bun src/register-commands-dev.ts"
   },
   "dependencies": {
     "discord.js": "^14.14.1",

@@ -42,3 +42,8 @@ infra/.env
 *.pem
 .cache/
 
+# Documentation (organized in docs/)
+docs/
+*.md
+!README.md
+

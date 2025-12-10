@@ -32,6 +32,7 @@ services:
       dockerfile: infra/Dockerfile.bot
     container_name: llamabot-bot
     working_dir: /app/packages/llama-bot
+    # env_file will be overridden in docker-compose.dev.yml
     env_file:
       - .env
     environment:

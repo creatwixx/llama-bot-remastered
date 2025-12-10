@@ -1,7 +1,20 @@
 import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js'
 import { readdirSync } from 'fs'
 import { join } from 'path'
+import { config } from 'dotenv'
+import { resolve } from 'path'
 import './health.js'
+
+// Load environment variables (only if not already set by Docker/env_file)
+// Prefer .env.local for development, fallback to .env
+if (!process.env.DISCORD_TOKEN) {
+  if (process.env.NODE_ENV === 'development') {
+    config({ path: resolve(process.cwd(), '../../infra/.env.local') })
+    config({ path: resolve(process.cwd(), '../../infra/.env') }) // Fallback
+  } else {
+    config({ path: resolve(process.cwd(), '../../infra/.env') })
+  }
+}
 
 // Initialize client
 const client = new Client({
@@ -31,12 +44,14 @@ for (const file of commandFiles) {
 
 // Ready event (using clientReady for future compatibility)
 client.once('ready', () => {
-  console.log(`✅ Logged in as ${client.user?.tag}!`)
-  console.log(`📊 Bot is in ${client.guilds.cache.size} guild(s)`)
+  const env = process.env.NODE_ENV === 'development' ? '[DEV]' : '[PROD]'
+  console.log(`${env} ✅ Logged in as ${client.user?.tag}!`)
+  console.log(`${env} 📊 Bot is in ${client.guilds.cache.size} guild(s)`)
 })
 // Also listen to clientReady for v15 compatibility
 client.once('clientReady', () => {
-  console.log(`✅ Client ready!`)
+  const env = process.env.NODE_ENV === 'development' ? '[DEV]' : '[PROD]'
+  console.log(`${env} ✅ Client ready!`)
 })
 
 // Interaction event
