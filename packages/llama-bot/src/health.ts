@@ -4,7 +4,7 @@ const port = parseInt(process.env.PORT || process.env.BOT_PORT || '8080', 10)
 
 const server = Bun.serve({
   port,
-  fetch(request) {
+  fetch(request: Request) {
     if (request.url.endsWith('/health')) {
       return new Response(
         JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }),

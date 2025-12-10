@@ -1,9 +1,15 @@
-import { Client, GatewayIntentBits, Collection, REST, Routes } from 'discord.js'
+import { Client, GatewayIntentBits, Collection, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js'
 import { readdirSync } from 'fs'
 import { join } from 'path'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 import './health.js'
+
+// Command type definition
+interface Command {
+  data: SlashCommandBuilder
+  execute: (interaction: ChatInputCommandInteraction) => Promise<void>
+}
 
 // Load environment variables (only if not already set by Docker/env_file)
 // Prefer .env.local for development, fallback to .env
@@ -26,7 +32,7 @@ const client = new Client({
 })
 
 // Command collection
-const commands = new Collection()
+const commands = new Collection<string, Command>()
 
 // Load commands
 const commandsPath = join(process.cwd(), 'src/commands')
@@ -36,9 +42,10 @@ const commandFiles = readdirSync(commandsPath).filter((file) =>
 
 for (const file of commandFiles) {
   const filePath = join(commandsPath, file)
-  const command = await import(filePath)
-  if (command.default && 'data' in command.default && 'execute' in command.default) {
-    commands.set(command.default.data.name, command.default)
+  const commandModule = await import(filePath)
+  const command = commandModule.default as Command | undefined
+  if (command && 'data' in command && 'execute' in command && typeof command.execute === 'function') {
+    commands.set(command.data.name, command)
   }
 }
 
