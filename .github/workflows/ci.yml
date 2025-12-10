@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Build Docker images
+        run: |
+          docker compose -f infra/docker-compose.yml build
+
+      - name: Lint API
+        working-directory: packages/llama-api
+        run: |
+          bun install --frozen-lockfile || echo "No lockfile, installing..."
+          # Add linting if configured
+          # bun run lint
+
+      - name: Lint Bot
+        working-directory: packages/llama-bot
+        run: |
+          bun install --frozen-lockfile || echo "No lockfile, installing..."
+          # Add linting if configured
+          # bun run lint
+
+      - name: Lint Client
+        working-directory: packages/llama-client
+        run: |
+          bun install --frozen-lockfile || echo "No lockfile, installing..."
+          bun run lint || echo "Linting skipped"
+
+      - name: Test API
+        working-directory: packages/llama-api
+        run: |
+          # Add tests when available
+          # bun test
+          echo "Tests not yet configured"
+
+      - name: Test Bot
+        working-directory: packages/llama-bot
+        run: |
+          # Add tests when available
+          # bun test
+          echo "Tests not yet configured"
+

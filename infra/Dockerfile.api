@@ -1,0 +1,35 @@
+FROM oven/bun:latest AS base
+WORKDIR /app
+
+# Install dependencies
+FROM base AS deps
+COPY packages/llama-api/package.json packages/llama-api/bun.lockb* ./packages/llama-api/
+WORKDIR /app/packages/llama-api
+RUN bun install --frozen-lockfile
+
+# Build stage
+FROM base AS build
+COPY --from=deps /app/packages/llama-api/node_modules ./packages/llama-api/node_modules
+COPY packages/llama-api/package.json packages/llama-api/tsconfig.json ./packages/llama-api/
+COPY packages/llama-api/src ./packages/llama-api/src
+COPY packages/llama-api/prisma ./packages/llama-api/prisma
+WORKDIR /app/packages/llama-api
+RUN bunx prisma generate
+# Add build commands if needed
+# RUN bun run build
+
+# Production stage
+FROM base AS runner
+ENV NODE_ENV=production
+WORKDIR /app/packages/llama-api
+
+COPY --from=deps /app/packages/llama-api/node_modules ./node_modules
+COPY --from=build /app/packages/llama-api/node_modules/.prisma ./node_modules/.prisma
+COPY packages/llama-api/package.json packages/llama-api/tsconfig.json ./
+COPY packages/llama-api/src ./src
+COPY packages/llama-api/prisma ./prisma
+
+EXPOSE 3000
+
+CMD ["bun", "run", "start"]
+

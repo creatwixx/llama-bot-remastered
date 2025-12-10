@@ -1,0 +1,26 @@
+FROM oven/bun:latest AS base
+WORKDIR /app
+
+# Install dependencies
+FROM base AS deps
+COPY packages/llama-client/package.json packages/llama-client/bun.lockb* ./packages/llama-client/
+WORKDIR /app/packages/llama-client
+RUN bun install --frozen-lockfile
+
+# Build stage
+FROM base AS build
+COPY --from=deps /app/packages/llama-client/node_modules ./packages/llama-client/node_modules
+COPY packages/llama-client/package.json packages/llama-client/tsconfig.json packages/llama-client/tsconfig.node.json packages/llama-client/vite.config.ts packages/llama-client/index.html ./packages/llama-client/
+COPY packages/llama-client/src ./packages/llama-client/src
+WORKDIR /app/packages/llama-client
+RUN bun run build
+
+# Production stage with nginx
+FROM nginx:alpine AS runner
+COPY --from=build /app/packages/llama-client/dist /usr/share/nginx/html
+COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 4173
+
+CMD ["nginx", "-g", "daemon off;"]
+

@@ -1,0 +1,22 @@
+FROM oven/bun:latest AS base
+WORKDIR /app
+
+# Install dependencies
+FROM base AS deps
+COPY packages/llama-bot/package.json packages/llama-bot/bun.lockb* ./packages/llama-bot/
+WORKDIR /app/packages/llama-bot
+RUN bun install --frozen-lockfile
+
+# Production stage
+FROM base AS runner
+ENV NODE_ENV=production
+WORKDIR /app/packages/llama-bot
+
+COPY --from=deps /app/packages/llama-bot/node_modules ./node_modules
+COPY packages/llama-bot/package.json packages/llama-bot/tsconfig.json ./
+COPY packages/llama-bot/src ./src
+
+EXPOSE 8080
+
+CMD ["bun", "run", "start"]
+
