@@ -21,10 +21,15 @@ const getApiUrl = (): string => {
           urlObj.port = '3000'
           url = urlObj.toString()
         }
-      } catch {
+      } catch (e) {
         // If URL parsing fails, try simple string manipulation
         if (!url.match(/:\d+(\/|$)/)) {
-          url = url.endsWith('/') ? url.replace(/\//, ':3000/') : `${url}:3000`
+          // Add port before any path or at the end
+          if (url.includes('/')) {
+            url = url.replace('/', ':3000/')
+          } else {
+            url = `${url}:3000`
+          }
         }
       }
     } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -60,10 +65,15 @@ const getApiUrl = (): string => {
           urlObj.port = '3000'
           url = urlObj.toString()
         }
-      } catch {
+      } catch (e) {
         // If URL parsing fails, try simple string manipulation
         if (!url.match(/:\d+(\/|$)/)) {
-          url = url.endsWith('/') ? url.replace(/\//, ':3000/') : `${url}:3000`
+          // Add port before any path or at the end
+          if (url.includes('/')) {
+            url = url.replace('/', ':3000/')
+          } else {
+            url = `${url}:3000`
+          }
         }
       }
     } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -105,10 +115,50 @@ try {
   API_URL = getApiUrl()
   // Log API URL for debugging (mask sensitive parts)
   const maskedUrl = API_URL.replace(/https?:\/\/([^@]+)@/, 'https://***@')
-  console.log(`[API] Using API URL: ${maskedUrl}`)
+  console.log(`[API] ✅ Using API URL: ${maskedUrl}`)
+  
+  // Validate URL can be used with fetch
+  try {
+    new URL(API_URL)
+  } catch (e) {
+    console.error(`[API] ❌ Invalid URL format: ${API_URL}`)
+    throw new Error(`Invalid API URL format: ${API_URL}. Must be a valid URL.`)
+  }
 } catch (error) {
   console.error('[API] ❌ Failed to determine API URL:', error instanceof Error ? error.message : error)
+  console.error('[API] Environment variables:')
+  console.error(`[API]   API_URL: ${process.env.API_URL || '(not set)'}`)
+  console.error(`[API]   APP_URL: ${process.env.APP_URL || '(not set)'}`)
+  console.error(`[API]   RAILWAY_ENVIRONMENT: ${process.env.RAILWAY_ENVIRONMENT || '(not set)'}`)
+  console.error(`[API]   DOCKER_ENV: ${process.env.DOCKER_ENV || '(not set)'}`)
+  console.error(`[API]   COMPOSE_PROJECT_NAME: ${process.env.COMPOSE_PROJECT_NAME || '(not set)'}`)
   throw error
+}
+
+// Helper to safely construct API endpoint URLs
+function buildApiUrl(endpoint: string): string {
+  if (!API_URL) {
+    throw new Error('API_URL is not set. Please configure API_URL environment variable.')
+  }
+  
+  // Remove leading slash from endpoint if present
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
+  
+  // Ensure API_URL doesn't end with a slash
+  const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL
+  
+  const fullUrl = `${baseUrl}/${cleanEndpoint}`
+  
+  // Validate the constructed URL
+  try {
+    new URL(fullUrl)
+    return fullUrl
+  } catch (e) {
+    console.error(`[API] ❌ Invalid URL constructed: ${fullUrl}`)
+    console.error(`[API] Base API_URL: ${API_URL}`)
+    console.error(`[API] Endpoint: ${endpoint}`)
+    throw new Error(`Invalid API URL constructed: ${fullUrl}`)
+  }
 }
 
 interface EmoteCheckResponse {
@@ -128,10 +178,7 @@ export async function checkEmoteTriggers(
   guildId?: string
 ): Promise<EmoteCheckResponse> {
   try {
-    const url = `${API_URL}/emotes/check`
-    if (!url || !url.startsWith('http')) {
-      throw new Error(`Invalid API URL: ${url}`)
-    }
+    const url = buildApiUrl('emotes/check')
     
     const response = await fetch(url, {
       method: 'POST',
@@ -139,18 +186,20 @@ export async function checkEmoteTriggers(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ message, guildId }),
+      signal: AbortSignal.timeout(10000), // 10 second timeout
     })
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`)
+      throw new Error(`API error: ${response.status} ${response.statusText}`)
     }
 
     return await response.json()
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL')) {
-      console.error(`[API] Connection error. API_URL: ${API_URL}`)
-      throw new Error(`Failed to connect to API. Check API_URL configuration.`)
+    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
+      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
+      console.error(`[API] Error details:`, errorMessage)
+      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
     }
     console.error('Error checking emote triggers:', error)
     throw error
@@ -166,10 +215,7 @@ export async function createEmote(data: {
   createdBy?: string
 }) {
   try {
-    const url = `${API_URL}/emotes`
-    if (!url || !url.startsWith('http')) {
-      throw new Error(`Invalid API URL: ${url}`)
-    }
+    const url = buildApiUrl('emotes')
     
     const response = await fetch(url, {
       method: 'POST',
@@ -177,19 +223,21 @@ export async function createEmote(data: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
+      signal: AbortSignal.timeout(10000), // 10 second timeout
     })
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }))
-      throw new Error(error.error || `API error: ${response.statusText}`)
+      throw new Error(error.error || `API error: ${response.status} ${response.statusText}`)
     }
 
     return await response.json()
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL')) {
-      console.error(`[API] Connection error. API_URL: ${API_URL}`)
-      throw new Error(`Failed to connect to API. Check API_URL configuration.`)
+    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
+      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
+      console.error(`[API] Error details:`, errorMessage)
+      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
     }
     console.error('Error creating emote:', error)
     throw error
@@ -202,23 +250,25 @@ export async function getEmotes(guildId?: string, enabled?: boolean) {
     if (guildId) params.append('guildId', guildId)
     if (enabled !== undefined) params.append('enabled', enabled.toString())
 
-    const url = `${API_URL}/emotes?${params.toString()}`
-    if (!url || !url.startsWith('http')) {
-      throw new Error(`Invalid API URL: ${url}`)
-    }
+    const baseUrl = buildApiUrl('emotes')
+    const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
 
-    const response = await fetch(url)
+    console.log(`[API] Fetching: ${url.replace(/https?:\/\/([^@]+)@/, 'https://***@')}`)
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(10000), // 10 second timeout
+    })
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`)
+      throw new Error(`API error: ${response.status} ${response.statusText}`)
     }
 
     return await response.json()
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL')) {
-      console.error(`[API] Connection error. API_URL: ${API_URL}`)
-      throw new Error(`Failed to connect to API. Check API_URL configuration.`)
+    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
+      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
+      console.error(`[API] Error details:`, errorMessage)
+      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
     }
     console.error('Error fetching emotes:', error)
     throw error
@@ -227,26 +277,25 @@ export async function getEmotes(guildId?: string, enabled?: boolean) {
 
 export async function deleteEmote(id: string) {
   try {
-    const url = `${API_URL}/emotes/${id}`
-    if (!url || !url.startsWith('http')) {
-      throw new Error(`Invalid API URL: ${url}`)
-    }
+    const url = buildApiUrl(`emotes/${id}`)
     
     const response = await fetch(url, {
       method: 'DELETE',
+      signal: AbortSignal.timeout(10000), // 10 second timeout
     })
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: response.statusText }))
-      throw new Error(error.error || `API error: ${response.statusText}`)
+      throw new Error(error.error || `API error: ${response.status} ${response.statusText}`)
     }
 
     return true
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL')) {
-      console.error(`[API] Connection error. API_URL: ${API_URL}`)
-      throw new Error(`Failed to connect to API. Check API_URL configuration.`)
+    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
+      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
+      console.error(`[API] Error details:`, errorMessage)
+      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
     }
     console.error('Error deleting emote:', error)
     throw error
