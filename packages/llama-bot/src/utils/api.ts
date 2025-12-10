@@ -1,19 +1,75 @@
 // API client utility for communicating with llama-api
 
-// In Docker, use service name 'api', otherwise use localhost or API_URL env var
+// Determine API URL based on environment
 const getApiUrl = () => {
+  // Explicit API_URL takes precedence (set in Railway or Docker)
   if (process.env.API_URL) {
-    return process.env.API_URL
+    let url = process.env.API_URL.trim()
+    // Handle Railway internal URLs - add protocol and port if missing
+    if (url.includes('railway.internal')) {
+      if (!url.startsWith('http')) {
+        url = `http://${url}`
+      }
+      // Add port if not present (Railway internal URLs need explicit port)
+      if (!url.includes(':3000') && !url.match(/:\d+$/)) {
+        url = `${url}:3000`
+      }
+    }
+    return url
   }
-  // In Docker network, use service name
-  if (process.env.NODE_ENV === 'production' || process.env.DOCKER_ENV) {
+  
+  // Fallback: Check for APP_URL (some Railway setups use this)
+  if (process.env.APP_URL) {
+    let url = process.env.APP_URL.trim()
+    // Handle Railway internal URLs - add protocol and port if missing
+    if (url.includes('railway.internal')) {
+      if (!url.startsWith('http')) {
+        url = `http://${url}`
+      }
+      // Add port if not present
+      if (!url.includes(':3000') && !url.match(/:\d+$/)) {
+        url = `${url}:3000`
+      }
+    } else if (!url.startsWith('http')) {
+      url = `http://${url}`
+    }
+    return url
+  }
+  
+  // Railway: Try Railway internal service name directly
+  // Railway allows services to call each other by service name
+  if (process.env.RAILWAY_ENVIRONMENT) {
+    // Try using the service name directly (Railway private networking)
+    return 'http://llama-api.railway.internal:3000'
+  }
+  
+  // Railway: Try to use service name if in Docker Compose deployment
+  // Note: This only works if both services are deployed via docker-compose
+  if (process.env.RAILWAY_ENVIRONMENT) {
+    // If RAILWAY_ENVIRONMENT is set but no API_URL/APP_URL, we're likely in separate services
+    console.error('[API] ❌ API_URL or APP_URL not set in Railway. Bot cannot connect to API.')
+    console.error('[API] Please set API_URL environment variable in Railway bot service.')
+    console.error('[API] Options:')
+    console.error('[API]   1. Use public domain: https://your-api-service.up.railway.app')
+    console.error('[API]   2. Use internal URL: http://llama-api.railway.internal:3000')
+    throw new Error('API_URL or APP_URL environment variable is required. Set it in Railway bot service variables.')
+  }
+  
+  // Docker Compose (local): use service name
+  if (process.env.DOCKER_ENV || process.env.COMPOSE_PROJECT_NAME) {
     return 'http://api:3000'
   }
-  // Local development
+  
+  // Local development (not in Docker)
   return 'http://localhost:3000'
 }
 
 const API_URL = getApiUrl()
+
+// Log API URL for debugging (without exposing sensitive info)
+if (process.env.NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug') {
+  console.log(`[API] Using API URL: ${API_URL}`)
+}
 
 interface EmoteCheckResponse {
   matches: boolean
