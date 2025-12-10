@@ -5,7 +5,7 @@
     "dockerfilePath": "../../infra/Dockerfile.bot"
   },
   "deploy": {
-    "startCommand": "bun run start",
+    "startCommand": "bun src/start.ts",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
