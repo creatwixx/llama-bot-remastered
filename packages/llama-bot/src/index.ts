@@ -1,9 +1,10 @@
-import { Client, GatewayIntentBits, Collection, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js'
+import { Client, GatewayIntentBits, Collection, REST, Routes, SlashCommandBuilder, ChatInputCommandInteraction, Events } from 'discord.js'
 import { readdirSync } from 'fs'
 import { join } from 'path'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 import './health.js'
+import { handleEmoteMessage } from './listeners/emote.listener.js'
 
 // Command type definition
 interface Command {
@@ -59,6 +60,11 @@ client.once('ready', () => {
 client.once('clientReady', () => {
   const env = process.env.NODE_ENV === 'development' ? '[DEV]' : '[PROD]'
   console.log(`${env} ✅ Client ready!`)
+})
+
+// Message event - check for emote triggers
+client.on(Events.MessageCreate, async (message) => {
+  await handleEmoteMessage(message)
 })
 
 // Interaction event
