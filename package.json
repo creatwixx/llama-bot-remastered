@@ -7,13 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.override.yml up",
+    "dev": "./start-dev.sh",
     "build": "docker compose -f infra/docker-compose.yml build",
     "start": "docker compose -f infra/docker-compose.yml up",
     "stop": "docker compose -f infra/docker-compose.yml down",
-    "db:migrate": "cd packages/llama-api && bunx prisma migrate dev",
-    "db:studio": "cd packages/llama-api && bunx prisma studio",
+    "db:migrate": "cd packages/llama-api && ./migrate.sh",
+    "db:migrate:docker": "cd packages/llama-api && ./migrate-docker.sh",
+    "db:studio": "cd packages/llama-api && export $(cat ../../infra/.env.local | grep -v '^#' | grep -v '^$' | xargs) && bunx prisma studio",
     "bot:register": "cd packages/llama-bot && bun run register"
   }
 }
-
