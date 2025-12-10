@@ -41,6 +41,7 @@ services:
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
+      - API_URL=${API_URL:-http://api:3000}
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     ports:
@@ -53,26 +54,9 @@ services:
       - llamabot-network
     restart: unless-stopped
 
-  client:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.client
-    container_name: llamabot-client
-    ports:
-      - "4173:4173"
-    depends_on:
-      - api
-    volumes:
-      - ../packages/llama-client:/app/packages/llama-client
-      - client-node-modules:/app/packages/llama-client/node_modules
-    networks:
-      - llamabot-network
-    restart: unless-stopped
-
 volumes:
   api-node-modules:
   bot-node-modules:
-  client-node-modules:
 
 networks:
   llamabot-network:

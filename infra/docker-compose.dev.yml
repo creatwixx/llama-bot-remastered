@@ -32,10 +32,5 @@ services:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - DISCORD_APP_ID=${DISCORD_APP_ID}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
+      - API_URL=http://api:3000
 
-  # Client runs locally outside Docker for easier development
-  # Run manually: cd packages/llama-client && bun run dev
-  client:
-    profiles:
-      - dont-start  # Disable by default in dev
-    # If you want to use the built client, remove the profiles line above
