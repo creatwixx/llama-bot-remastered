@@ -1,6 +1,6 @@
 # Llama Bot Remastered
 
-Discord bot monorepo with client, API, and bot services.
+Discord bot monorepo with API and bot services.
 
 ## Quick Start
 
@@ -21,7 +21,6 @@ Deployed automatically when you push to GitHub. Services run on Railway.
 
 ## Structure
 
-- `packages/llama-client/` - Vite + React + TypeScript frontend
 - `packages/llama-api/` - Fastify + Prisma + Bun backend API
 - `packages/llama-bot/` - Discord.js + Bun bot service
 - `infra/` - Docker Compose and infrastructure configuration
@@ -34,7 +33,6 @@ Deployed automatically when you push to GitHub. Services run on Railway.
 
 ## Services
 
-- **Client**: http://localhost:5173 (dev)
 - **API**: http://localhost:3000
 - **Bot**: Health endpoint at http://localhost:8080/health
 
