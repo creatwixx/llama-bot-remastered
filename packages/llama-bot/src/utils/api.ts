@@ -75,16 +75,30 @@ function buildApiUrl(endpoint: string): string {
   return `${baseUrl}/${cleanEndpoint}`
 }
 
+interface Emote {
+  id: string
+  guildId: string | null
+  trigger: string
+  imageUrl: string
+  exactMatch: boolean
+  enabled: boolean
+  useCount: number
+  createdAt: string
+  updatedAt: string
+  createdBy: string | null
+}
+
 interface EmoteCheckResponse {
   matches: boolean
-  emotes: Array<{
-    id: string
-    guildId: string | null
-    trigger: string
-    emote: string
-    exactMatch: boolean
-    enabled: boolean
-  }>
+  emotes: Array<Emote>
+}
+
+interface GetEmotesResponse {
+  emotes: Array<Emote>
+}
+
+interface CreateEmoteResponse {
+  emote: Emote
 }
 
 export async function checkEmoteTriggers(
@@ -107,7 +121,7 @@ export async function checkEmoteTriggers(
       throw new Error(`API error: ${response.status} ${response.statusText}`)
     }
 
-    return await response.json()
+    return await response.json() as EmoteCheckResponse
   } catch (error) {
     console.error(`[API] Error checking emote triggers from ${API_URL}:`, error)
     throw error
@@ -121,7 +135,7 @@ export async function createEmote(data: {
   exactMatch?: boolean
   enabled?: boolean
   createdBy?: string
-}) {
+}): Promise<CreateEmoteResponse> {
   try {
     const url = buildApiUrl('emotes')
     
@@ -135,18 +149,18 @@ export async function createEmote(data: {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }))
+      const error = await response.json().catch(() => ({ error: response.statusText })) as { error?: string }
       throw new Error(error.error || `API error: ${response.status} ${response.statusText}`)
     }
 
-    return await response.json()
+    return await response.json() as CreateEmoteResponse
   } catch (error) {
     console.error(`[API] Error creating emote at ${API_URL}:`, error)
     throw error
   }
 }
 
-export async function getEmotes(guildId?: string, enabled?: boolean) {
+export async function getEmotes(guildId?: string, enabled?: boolean): Promise<GetEmotesResponse> {
   try {
     const params = new URLSearchParams()
     if (guildId) params.append('guildId', guildId)
@@ -163,7 +177,7 @@ export async function getEmotes(guildId?: string, enabled?: boolean) {
       throw new Error(`API error: ${response.status} ${response.statusText}`)
     }
 
-    return await response.json()
+    return await response.json() as GetEmotesResponse
   } catch (error) {
     console.error(`[API] Error fetching emotes from ${API_URL}:`, error)
     throw error
@@ -180,7 +194,7 @@ export async function deleteEmote(id: string) {
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }))
+      const error = await response.json().catch(() => ({ error: response.statusText })) as { error?: string }
       throw new Error(error.error || `API error: ${response.status} ${response.statusText}`)
     }
 

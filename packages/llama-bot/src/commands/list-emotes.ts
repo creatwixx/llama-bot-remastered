@@ -36,7 +36,7 @@ export default {
           emotes
             .slice(0, 25) // Discord embed limit
             .map(
-              (emote: any) =>
+              (emote) =>
                 `**${emote.trigger}** → [Image] ${emote.exactMatch ? '(exact)' : ''} ${emote.enabled ? '✅' : '❌'}`
             )
             .join('\n')
