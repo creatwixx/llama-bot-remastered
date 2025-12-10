@@ -2,163 +2,77 @@
 
 // Determine API URL based on environment
 const getApiUrl = (): string => {
-  // Explicit API_URL takes precedence (set in Railway or Docker)
+  // Explicit API_URL takes precedence
   if (process.env.API_URL) {
     let url = process.env.API_URL.trim()
     if (!url) {
       throw new Error('API_URL is set but empty')
     }
     
-    // Handle Railway internal URLs - add protocol and port if missing
-    if (url.includes('railway.internal')) {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    // Add protocol if missing
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Use https for public Railway domains, http for internal
+      if (url.includes('railway.internal')) {
         url = `http://${url}`
+      } else {
+        url = `https://${url}`
       }
-      // Add port if not present (Railway internal URLs need explicit port)
-      try {
-        const urlObj = new URL(url)
-        if (!urlObj.port) {
-          urlObj.port = '3000'
-          url = urlObj.toString()
-        }
-      } catch (e) {
-        // If URL parsing fails, try simple string manipulation
-        if (!url.match(/:\d+(\/|$)/)) {
-          // Add port before any path or at the end
-          if (url.includes('/')) {
-            url = url.replace('/', ':3000/')
-          } else {
-            url = `${url}:3000`
-          }
-        }
-      }
-    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // For non-railway URLs, add http:// if missing
-      url = `http://${url}`
     }
     
-    // Validate URL format
-    try {
-      new URL(url)
-      return url
-    } catch (e) {
-      throw new Error(`Invalid API_URL format: "${url}". Must be a valid URL (e.g., http://llama-api.railway.internal:3000)`)
+    // Add port for Railway internal URLs if missing
+    if (url.includes('railway.internal') && !url.match(/:\d+/)) {
+      url = `${url}:3000`
     }
+    
+    return url
   }
   
-  // Fallback: Check for APP_URL (some Railway setups use this)
+  // Fallback: Check for APP_URL
   if (process.env.APP_URL) {
     let url = process.env.APP_URL.trim()
     if (!url) {
       throw new Error('APP_URL is set but empty')
     }
     
-    // Handle Railway internal URLs - add protocol and port if missing
-    if (url.includes('railway.internal')) {
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Use https for public Railway domains, http for internal
+      if (url.includes('railway.internal')) {
         url = `http://${url}`
+      } else {
+        url = `https://${url}`
       }
-      // Add port if not present
-      try {
-        const urlObj = new URL(url)
-        if (!urlObj.port) {
-          urlObj.port = '3000'
-          url = urlObj.toString()
-        }
-      } catch (e) {
-        // If URL parsing fails, try simple string manipulation
-        if (!url.match(/:\d+(\/|$)/)) {
-          // Add port before any path or at the end
-          if (url.includes('/')) {
-            url = url.replace('/', ':3000/')
-          } else {
-            url = `${url}:3000`
-          }
-        }
-      }
-    } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = `http://${url}`
     }
     
-    // Validate URL format
-    try {
-      new URL(url)
-      return url
-    } catch (e) {
-      throw new Error(`Invalid APP_URL format: "${url}". Must be a valid URL`)
+    if (url.includes('railway.internal') && !url.match(/:\d+/)) {
+      url = `${url}:3000`
     }
+    
+    return url
   }
   
-  // Railway: Try Railway internal service name directly
-  // Railway allows services to call each other by service name
+  // Railway: Try internal service name
   if (process.env.RAILWAY_ENVIRONMENT) {
-    // If RAILWAY_ENVIRONMENT is set but no API_URL/APP_URL, we're likely in separate services
-    console.error('[API] ❌ API_URL or APP_URL not set in Railway. Bot cannot connect to API.')
-    console.error('[API] Please set API_URL environment variable in Railway bot service.')
-    console.error('[API] Options:')
-    console.error('[API]   1. Use public domain: https://your-api-service.up.railway.app')
-    console.error('[API]   2. Use internal URL: http://llama-api.railway.internal:3000')
-    throw new Error('API_URL or APP_URL environment variable is required. Set it in Railway bot service variables.')
+    console.error('[API] ❌ API_URL not set in Railway. Please set API_URL in bot service variables.')
+    throw new Error('API_URL environment variable is required in Railway')
   }
   
-  // Docker Compose (local): use service name
+  // Docker Compose (local)
   if (process.env.DOCKER_ENV || process.env.COMPOSE_PROJECT_NAME) {
     return 'http://api:3000'
   }
   
-  // Local development (not in Docker)
+  // Local development
   return 'http://localhost:3000'
 }
 
-let API_URL: string
-try {
-  API_URL = getApiUrl()
-  // Log API URL for debugging (mask sensitive parts)
-  const maskedUrl = API_URL.replace(/https?:\/\/([^@]+)@/, 'https://***@')
-  console.log(`[API] ✅ Using API URL: ${maskedUrl}`)
-  
-  // Validate URL can be used with fetch
-  try {
-    new URL(API_URL)
-  } catch (e) {
-    console.error(`[API] ❌ Invalid URL format: ${API_URL}`)
-    throw new Error(`Invalid API URL format: ${API_URL}. Must be a valid URL.`)
-  }
-} catch (error) {
-  console.error('[API] ❌ Failed to determine API URL:', error instanceof Error ? error.message : error)
-  console.error('[API] Environment variables:')
-  console.error(`[API]   API_URL: ${process.env.API_URL || '(not set)'}`)
-  console.error(`[API]   APP_URL: ${process.env.APP_URL || '(not set)'}`)
-  console.error(`[API]   RAILWAY_ENVIRONMENT: ${process.env.RAILWAY_ENVIRONMENT || '(not set)'}`)
-  console.error(`[API]   DOCKER_ENV: ${process.env.DOCKER_ENV || '(not set)'}`)
-  console.error(`[API]   COMPOSE_PROJECT_NAME: ${process.env.COMPOSE_PROJECT_NAME || '(not set)'}`)
-  throw error
-}
+const API_URL = getApiUrl()
+console.log(`[API] Using API URL: ${API_URL}`)
 
-// Helper to safely construct API endpoint URLs
+// Helper to construct API endpoint URLs
 function buildApiUrl(endpoint: string): string {
-  if (!API_URL) {
-    throw new Error('API_URL is not set. Please configure API_URL environment variable.')
-  }
-  
-  // Remove leading slash from endpoint if present
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
-  
-  // Ensure API_URL doesn't end with a slash
   const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL
-  
-  const fullUrl = `${baseUrl}/${cleanEndpoint}`
-  
-  // Validate the constructed URL
-  try {
-    new URL(fullUrl)
-    return fullUrl
-  } catch (e) {
-    console.error(`[API] ❌ Invalid URL constructed: ${fullUrl}`)
-    console.error(`[API] Base API_URL: ${API_URL}`)
-    console.error(`[API] Endpoint: ${endpoint}`)
-    throw new Error(`Invalid API URL constructed: ${fullUrl}`)
-  }
+  return `${baseUrl}/${cleanEndpoint}`
 }
 
 interface EmoteCheckResponse {
@@ -186,7 +100,7 @@ export async function checkEmoteTriggers(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ message, guildId }),
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(10000),
     })
 
     if (!response.ok) {
@@ -195,13 +109,7 @@ export async function checkEmoteTriggers(
 
     return await response.json()
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
-      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
-      console.error(`[API] Error details:`, errorMessage)
-      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
-    }
-    console.error('Error checking emote triggers:', error)
+    console.error(`[API] Error checking emote triggers from ${API_URL}:`, error)
     throw error
   }
 }
@@ -223,7 +131,7 @@ export async function createEmote(data: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(data),
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(10000),
     })
 
     if (!response.ok) {
@@ -233,13 +141,7 @@ export async function createEmote(data: {
 
     return await response.json()
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
-      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
-      console.error(`[API] Error details:`, errorMessage)
-      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
-    }
-    console.error('Error creating emote:', error)
+    console.error(`[API] Error creating emote at ${API_URL}:`, error)
     throw error
   }
 }
@@ -253,9 +155,8 @@ export async function getEmotes(guildId?: string, enabled?: boolean) {
     const baseUrl = buildApiUrl('emotes')
     const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
 
-    console.log(`[API] Fetching: ${url.replace(/https?:\/\/([^@]+)@/, 'https://***@')}`)
     const response = await fetch(url, {
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(10000),
     })
 
     if (!response.ok) {
@@ -264,13 +165,7 @@ export async function getEmotes(guildId?: string, enabled?: boolean) {
 
     return await response.json()
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
-      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
-      console.error(`[API] Error details:`, errorMessage)
-      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
-    }
-    console.error('Error fetching emotes:', error)
+    console.error(`[API] Error fetching emotes from ${API_URL}:`, error)
     throw error
   }
 }
@@ -281,7 +176,7 @@ export async function deleteEmote(id: string) {
     
     const response = await fetch(url, {
       method: 'DELETE',
-      signal: AbortSignal.timeout(10000), // 10 second timeout
+      signal: AbortSignal.timeout(10000),
     })
 
     if (!response.ok) {
@@ -291,13 +186,7 @@ export async function deleteEmote(id: string) {
 
     return true
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage.includes('fetch') || errorMessage.includes('URL') || errorMessage.includes('Invalid')) {
-      console.error(`[API] ❌ Connection error. API_URL: ${API_URL}`)
-      console.error(`[API] Error details:`, errorMessage)
-      throw new Error(`Failed to connect to API at ${API_URL}. Please check API_URL environment variable in Railway.`)
-    }
-    console.error('Error deleting emote:', error)
+    console.error(`[API] Error deleting emote at ${API_URL}:`, error)
     throw error
   }
 }
