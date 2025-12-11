@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,41 +17,27 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Build Docker images
-        run: |
-          docker compose -f infra/docker-compose.yml build
-
-      - name: Lint API
+      - name: Install API dependencies
         working-directory: packages/llama-api
         run: |
-          bun install --frozen-lockfile || echo "No lockfile, installing..."
-          # Add linting if configured
-          # bun run lint
+          bun install --frozen-lockfile || bun install
 
-      - name: Lint Bot
-        working-directory: packages/llama-bot
-        run: |
-          bun install --frozen-lockfile || echo "No lockfile, installing..."
-          # Add linting if configured
-          # bun run lint
-
-      - name: Lint Client
-        working-directory: packages/llama-client
-        run: |
-          bun install --frozen-lockfile || echo "No lockfile, installing..."
-          bun run lint || echo "Linting skipped"
-
-      - name: Test API
+      - name: Validate API TypeScript
         working-directory: packages/llama-api
         run: |
-          # Add tests when available
-          # bun test
-          echo "Tests not yet configured"
+          bunx tsc --noEmit
 
-      - name: Test Bot
+      - name: Validate API Prisma schema
+        working-directory: packages/llama-api
+        run: |
+          bunx prisma validate
+
+      - name: Install Bot dependencies
         working-directory: packages/llama-bot
         run: |
-          # Add tests when available
-          # bun test
-          echo "Tests not yet configured"
+          bun install --frozen-lockfile || bun install
 
+      - name: Validate Bot TypeScript
+        working-directory: packages/llama-bot
+        run: |
+          bunx tsc --noEmit
