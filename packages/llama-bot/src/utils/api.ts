@@ -1,5 +1,8 @@
 // API client utility for communicating with llama-api
 
+import { existsSync } from 'fs'
+import { resolve } from 'path'
+
 // Determine API URL based on environment
 const getApiUrl = (): string => {
   // Explicit API_URL takes precedence
@@ -50,8 +53,13 @@ const getApiUrl = (): string => {
     return url;
   }
 
-  // Railway: Try internal service name
-  if (process.env.RAILWAY_ENVIRONMENT) {
+  // Railway: Check if we're on Railway (no .env.local file means Railway)
+  // Note: This is a fallback check - if API_URL and APP_URL are both unset,
+  // we're likely on Railway and need API_URL to be set
+  const envLocalPath = resolve(process.cwd(), '../../infra/.env.local');
+  const isRailway = !existsSync(envLocalPath);
+  
+  if (isRailway) {
     console.error(
       "[API] ❌ API_URL not set in Railway. Please set API_URL in bot service variables."
     );
