@@ -7,8 +7,8 @@
     "dev": "bun --watch src/server.ts",
     "start": "bun src/server.ts",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate": "./migrate.sh",
+    "prisma:migrate:deploy": "./migrate.sh deploy",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
@@ -24,4 +24,3 @@
     "typescript": "^5.3.3"
   }
 }
-
