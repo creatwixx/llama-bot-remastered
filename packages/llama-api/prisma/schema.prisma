@@ -11,33 +11,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  discordId String   @unique
-  username  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model GuildConfig {
-  id        String   @id @default(cuid())
-  guildId   String   @unique
-  settings  Json     @default("{}")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Emote {
-  id          String   @id @default(cuid())
-  guildId    String?  // null for global emotes
-  trigger     String   // The message text/pattern that triggers this emote
-  imageUrl    String   // The image URL to send when trigger matches
-  exactMatch  Boolean  @default(false) // If true, requires exact match; if false, checks if message contains trigger
-  enabled     Boolean  @default(true)
-  useCount    Int      @default(0) // Track how many times this emote has been used
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String?  // Discord user ID who created this emote
+  id         String   @id @default(cuid())
+  guildId    String? // null for global emotes
+  trigger    String // The message text/pattern that triggers this emote
+  imageUrl   String // The image URL to send when trigger matches
+  exactMatch Boolean  @default(false) // If true, requires exact match; if false, checks if message contains trigger
+  enabled    Boolean  @default(true)
+  useCount   Int      @default(0) // Track how many times this emote has been used
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  author     String // Discord username who created this emote
 
   @@index([guildId])
   @@index([trigger])
@@ -45,18 +29,17 @@ model Emote {
 
 model Command {
   id          String   @id @default(cuid())
-  guildId    String?  // null for global commands
-  name        String   // Command name (e.g., "ping", "help")
-  description String?  // Command description
-  response    String   // The response text/action for this command
+  guildId     String? // null for global commands
+  name        String // Command name (e.g., "ping", "help")
+  description String? // Command description
+  response    String // The response text/action for this command
   enabled     Boolean  @default(true)
   useCount    Int      @default(0) // Track how many times this command has been used
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  createdBy   String?  // Discord user ID who created this command
+  createdBy   String? // Discord user ID who created this command
 
   @@unique([guildId, name])
   @@index([guildId])
   @@index([name])
 }
-
