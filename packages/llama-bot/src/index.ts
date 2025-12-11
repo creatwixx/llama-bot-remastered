@@ -22,14 +22,13 @@ interface Command {
 }
 
 // Load environment variables (only if not already set by Docker/env_file)
-// Prefer .env.local for development, fallback to .env
+// For local development, use .env.local
+// For production (Railway), environment variables are set by Railway
 if (!process.env.DISCORD_TOKEN) {
   if (process.env.NODE_ENV === "development") {
     config({ path: resolve(process.cwd(), "../../infra/.env.local") });
-    config({ path: resolve(process.cwd(), "../../infra/.env") }); // Fallback
-  } else {
-    config({ path: resolve(process.cwd(), "../../infra/.env") });
   }
+  // Production uses Railway environment variables, no .env file needed
 }
 
 // Initialize client
