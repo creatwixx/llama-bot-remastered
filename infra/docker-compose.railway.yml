@@ -25,7 +25,6 @@ services:
       - DISCORD_APP_ID=${DISCORD_APP_ID}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
       - API_URL=http://api:3000
       - NODE_ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-info}

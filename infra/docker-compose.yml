@@ -1,7 +1,7 @@
 services:
   # Note: When deploying to Railway, use Railway's managed PostgreSQL instead of this
-  # For local development with Railway DB, skip starting db/redis containers
-  # Use docker-compose.local.yml if you want local Docker DB/Redis
+  # For local development with Railway DB, skip starting db container
+  # Use docker-compose.local.yml if you want local Docker DB
   
   api:
     build:
@@ -40,13 +40,12 @@ services:
       - DISCORD_APP_ID=${DISCORD_APP_ID}
       - DISCORD_GUILD_ID=${DISCORD_GUILD_ID}
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
       - API_URL=${API_URL:-http://api:3000}
       - NODE_ENV=${NODE_ENV:-production}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     ports:
       - "${BOT_PORT:-8080}:8080"
-    # depends_on: db, redis  # Commented out - using Railway/external services
+    # depends_on: db  # Commented out - using Railway/external DB
     volumes:
       - ../packages/llama-bot:/app/packages/llama-bot
       - bot-node-modules:/app/packages/llama-bot/node_modules

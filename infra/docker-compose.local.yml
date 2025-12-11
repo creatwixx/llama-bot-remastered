@@ -1,5 +1,5 @@
-# Local development with Docker database and Redis
-# Use this ONLY if you want to run DB/Redis locally instead of Railway
+# Local development with Docker database
+# Use this ONLY if you want to run DB locally instead of Railway
 # Usage: docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml up
 
 services:
@@ -22,21 +22,6 @@ services:
     networks:
       - llamabot-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: llamabot-redis-local
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    networks:
-      - llamabot-network
-
   api:
     depends_on:
       db:
@@ -46,10 +31,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
 
 volumes:
   db-data:
-  redis-data:
 
