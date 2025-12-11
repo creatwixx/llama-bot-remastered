@@ -29,6 +29,10 @@ jobs:
 
       - name: Validate API Prisma schema
         working-directory: packages/llama-api
+        env:
+          # prisma validate only checks schema syntax, doesn't connect to DB
+          # Using dummy value is sufficient for validation
+          DATABASE_URL: postgresql://user:password@localhost:5432/dbname
         run: |
           bunx prisma validate
 
