@@ -49,7 +49,7 @@ export default {
       await deleteEmote(emoteToDelete.id);
 
       await interaction.reply({
-        content: `✅ Image trigger removed! Trigger: "${emoteToDelete.trigger}"`,
+        content: `✅ Emote removed! Trigger: "${emoteToDelete.trigger}"`,
         ephemeral: true,
       });
     } catch (error: any) {

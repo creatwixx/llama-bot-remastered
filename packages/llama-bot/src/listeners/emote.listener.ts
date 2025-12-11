@@ -1,4 +1,4 @@
-import { Events, Message } from "discord.js";
+import { Message, EmbedBuilder } from "discord.js";
 import { checkEmoteTriggers } from "../utils/api.js";
 
 export async function handleEmoteMessage(message: Message): Promise<void> {
@@ -31,14 +31,17 @@ export async function handleEmoteMessage(message: Message): Promise<void> {
 
       for (const emote of result.emotes) {
         try {
-          // Send the image URL as a message
+          // Create an embed with the image URL for proper GIF/image display
+          const embed = new EmbedBuilder().setImage(emote.imageUrl);
+
+          // Send the embed instead of plain text content
           // Type assertion is safe here because we checked for send method above
           await (
             channel as {
-              send: (options: { content: string }) => Promise<unknown>;
+              send: (options: { embeds: EmbedBuilder[] }) => Promise<unknown>;
             }
           ).send({
-            content: emote.imageUrl,
+            embeds: [embed],
           });
         } catch (error) {
           console.warn(`Failed to send image ${emote.imageUrl}:`, error);
