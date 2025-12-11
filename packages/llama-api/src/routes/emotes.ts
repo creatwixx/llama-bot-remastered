@@ -81,18 +81,30 @@ export default async function emoteRoutes(fastify: FastifyInstance) {
   fastify.post("/emotes", async (request, reply) => {
     const data = createEmoteSchema.parse(request.body);
 
-    const emote = await prisma.emote.create({
-      data: {
-        guildId: data.guildId ?? null,
-        trigger: data.trigger,
-        imageUrl: data.imageUrl,
-        exactMatch: data.exactMatch,
-        enabled: data.enabled,
-        author: data.author, // Required - Discord username who created this emote
-      },
-    });
+    try {
+      const emote = await prisma.emote.create({
+        data: {
+          guildId: data.guildId ?? null,
+          trigger: data.trigger,
+          imageUrl: data.imageUrl,
+          exactMatch: data.exactMatch,
+          enabled: data.enabled,
+          author: data.author, // Required - Discord username who created this emote
+        },
+      });
 
-    return reply.code(201).send({ emote });
+      return reply.code(201).send({ emote });
+    } catch (error: any) {
+      // Handle unique constraint violation (duplicate trigger)
+      if (error.code === "P2002") {
+        const scope = data.guildId ? "this server" : "globally";
+        return reply.code(409).send({
+          error: "Emote already exists",
+          message: `An emote with trigger "${data.trigger}" already exists ${scope}.`,
+        });
+      }
+      throw error;
+    }
   });
 
   // Update emote
