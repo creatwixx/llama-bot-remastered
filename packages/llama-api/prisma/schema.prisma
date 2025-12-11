@@ -23,6 +23,7 @@ model Emote {
   updatedAt  DateTime @updatedAt
   author     String // Discord username who created this emote
 
+  @@unique([guildId, trigger])
   @@index([guildId])
   @@index([trigger])
 }
