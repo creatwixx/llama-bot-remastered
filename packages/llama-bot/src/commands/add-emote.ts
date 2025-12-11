@@ -62,7 +62,7 @@ export default {
         imageUrl,
         exactMatch,
         enabled: true,
-        createdBy: interaction.user.id,
+        author: interaction.user.username,
       })
 
       await interaction.reply({
