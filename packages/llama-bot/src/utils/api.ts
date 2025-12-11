@@ -1,7 +1,7 @@
 // API client utility for communicating with llama-api
 
-import { existsSync } from 'fs'
-import { resolve } from 'path'
+import { existsSync } from "fs";
+import { resolve } from "path";
 
 // Determine API URL based on environment
 const getApiUrl = (): string => {
@@ -56,9 +56,9 @@ const getApiUrl = (): string => {
   // Railway: Check if we're on Railway (no .env.local file means Railway)
   // Note: This is a fallback check - if API_URL and APP_URL are both unset,
   // we're likely on Railway and need API_URL to be set
-  const envLocalPath = resolve(process.cwd(), '../../infra/.env.local');
+  const envLocalPath = resolve(process.cwd(), "../../infra/.env.local");
   const isRailway = !existsSync(envLocalPath);
-  
+
   if (isRailway) {
     console.error(
       "[API] ❌ API_URL not set in Railway. Please set API_URL in bot service variables."
@@ -164,9 +164,14 @@ export async function createEmote(data: {
     if (!response.ok) {
       const error = (await response
         .json()
-        .catch(() => ({ error: response.statusText }))) as { error?: string };
+        .catch(() => ({ error: response.statusText }))) as {
+        error?: string;
+        message?: string;
+      };
       throw new Error(
-        error.error || `API error: ${response.status} ${response.statusText}`
+        error.message ||
+          error.error ||
+          `API error: ${response.status} ${response.statusText}`
       );
     }
 
@@ -216,9 +221,14 @@ export async function deleteEmote(id: string) {
     if (!response.ok) {
       const error = (await response
         .json()
-        .catch(() => ({ error: response.statusText }))) as { error?: string };
+        .catch(() => ({ error: response.statusText }))) as {
+        error?: string;
+        message?: string;
+      };
       throw new Error(
-        error.error || `API error: ${response.status} ${response.statusText}`
+        error.message ||
+          error.error ||
+          `API error: ${response.status} ${response.statusText}`
       );
     }
 
