@@ -305,12 +305,14 @@ Base URL: `http://localhost:3000` (local) or your Railway API URL (production)
 
 ## 🚢 Deployment (Railway)
 
-### Quick Deploy
+This project is **deployed on Railway**. Railway is the primary and recommended deployment platform.
+
+### Quick Deploy to Railway
 
 1. **Connect Repository**: Link your GitHub repo to Railway
 2. **Add Services**: Create two services from your repo:
-   - `llama-api` (uses `packages/llama-api/railway.json`)
-   - `llama-bot` (uses `packages/llama-bot/railway.json`)
+   - `llama-api` (uses `infra/Dockerfile.api`)
+   - `llama-bot` (uses `infra/Dockerfile.bot`)
 3. **Add PostgreSQL**: Add a PostgreSQL service in Railway
 4. **Set Environment Variables**:
 
@@ -319,6 +321,7 @@ Base URL: `http://localhost:3000` (local) or your Railway API URL (production)
    - `DATABASE_URL` - Copy from PostgreSQL service variables
    - `NODE_ENV=production`
    - `LOG_LEVEL=info`
+   - `PORT` - Railway sets this automatically
 
    **Bot Service:**
 
@@ -329,19 +332,26 @@ Base URL: `http://localhost:3000` (local) or your Railway API URL (production)
    - `API_URL` - Use Railway's internal URL: `http://llama-api.railway.internal:3000`
    - `NODE_ENV=production`
    - `LOG_LEVEL=info`
+   - `PORT` - Railway sets this automatically
 
 5. **Deploy**: Push to `main` branch - Railway auto-deploys!
 
-### Switching Deployment Providers
+**Note**: Railway automatically detects the Dockerfiles, so no additional configuration files are needed.
 
-To deploy elsewhere (AWS, Render, Fly.io, etc.):
+### Switching to Another Provider (If Needed)
 
-1. Update `railway.json` files or remove them
-2. Update Dockerfiles if needed (`infra/Dockerfile.api`, `infra/Dockerfile.bot`)
-3. Set environment variables in your provider's dashboard
-4. Configure build/deploy commands in your provider
+While Railway is the primary platform, the code is designed to be **provider-agnostic** and can be easily adapted to other platforms. If you need to switch:
 
-The code is provider-agnostic - only environment variables and build configs need changes.
+1. **No code changes needed** - the application logic automatically handles different providers
+2. **Update API_URL** in bot service to match your new provider's internal networking format:
+   - Render: `http://llama-api:10000` (or your service's internal hostname)
+   - Fly.io: `http://llama-api.internal:3000`
+   - AWS ECS: `http://llama-api:3000` (or your service discovery name)
+   - Other: Check your provider's documentation for internal service networking
+3. **Set environment variables** in your new provider's dashboard (same variables as Railway)
+4. **Configure build/deploy** using your provider's interface (point to `infra/Dockerfile.api` and `infra/Dockerfile.bot`)
+
+**The only change needed is the `API_URL` format** - the code automatically detects and handles different internal URL patterns (`.internal`, `.local`, service names, etc.).
 
 ---
 
