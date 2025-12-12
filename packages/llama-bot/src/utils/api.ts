@@ -1,8 +1,5 @@
 // API client utility for communicating with llama-api
 
-import { existsSync } from "fs";
-import { resolve } from "path";
-
 // Determine API URL based on environment
 const getApiUrl = (): string => {
   // Explicit API_URL takes precedence
@@ -14,16 +11,25 @@ const getApiUrl = (): string => {
 
     // Add protocol if missing
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      // Use https for public Railway domains, http for internal
-      if (url.includes("railway.internal")) {
-        url = `http://${url}`;
-      } else {
-        url = `https://${url}`;
-      }
+      // Detect internal service URLs (common patterns: .internal, .local, service names)
+      // Use http for internal services, https for public URLs
+      const isInternalUrl =
+        url.includes(".internal") ||
+        url.includes(".local") ||
+        url.match(/^[a-z-]+:\d+$/) || // service:port format
+        !url.includes("."); // no dots = likely internal service name
+
+      url = isInternalUrl ? `http://${url}` : `https://${url}`;
     }
 
-    // Add port for Railway internal URLs if missing
-    if (url.includes("railway.internal") && !url.match(/:\d+/)) {
+    // Add default port for internal service URLs if missing
+    // Common internal URL patterns: service-name, service-name.internal, etc.
+    if (
+      (url.includes(".internal") ||
+        url.includes(".local") ||
+        !url.includes(".")) &&
+      !url.match(/:\d+/)
+    ) {
       url = `${url}:3000`;
     }
 
@@ -38,40 +44,41 @@ const getApiUrl = (): string => {
     }
 
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      // Use https for public Railway domains, http for internal
-      if (url.includes("railway.internal")) {
-        url = `http://${url}`;
-      } else {
-        url = `https://${url}`;
-      }
+      const isInternalUrl =
+        url.includes(".internal") ||
+        url.includes(".local") ||
+        url.match(/^[a-z-]+:\d+$/) ||
+        !url.includes(".");
+
+      url = isInternalUrl ? `http://${url}` : `https://${url}`;
     }
 
-    if (url.includes("railway.internal") && !url.match(/:\d+/)) {
+    if (
+      (url.includes(".internal") ||
+        url.includes(".local") ||
+        !url.includes(".")) &&
+      !url.match(/:\d+/)
+    ) {
       url = `${url}:3000`;
     }
 
     return url;
   }
 
-  // Railway: Check if we're on Railway (no .env.local file means Railway)
-  // Note: This is a fallback check - if API_URL and APP_URL are both unset,
-  // we're likely on Railway and need API_URL to be set
-  const envLocalPath = resolve(process.cwd(), "../../infra/.env.local");
-  const isRailway = !existsSync(envLocalPath);
-
-  if (isRailway) {
+  // Production/Deployed: API_URL must be set
+  if (process.env.NODE_ENV === "production") {
     console.error(
-      "[API] ❌ API_URL not set in Railway. Please set API_URL in bot service variables."
+      "[API] ❌ API_URL not set in production. Please set API_URL environment variable."
     );
-    throw new Error("API_URL environment variable is required in Railway");
+    throw new Error("API_URL environment variable is required in production");
   }
 
-  // Docker Compose (local)
+  // Docker Compose (local development)
   if (process.env.DOCKER_ENV || process.env.COMPOSE_PROJECT_NAME) {
     return "http://api:3000";
   }
 
-  // Local development
+  // Local development (no Docker)
   return "http://localhost:3000";
 };
 

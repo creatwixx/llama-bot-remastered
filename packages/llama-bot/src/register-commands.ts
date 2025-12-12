@@ -1,5 +1,5 @@
 // Register Discord slash commands
-// Automatically detects environment (Railway, local dev, etc.) and loads appropriate config
+// Automatically detects environment and loads appropriate config
 
 import { REST, Routes } from "discord.js";
 import { readdirSync, existsSync } from "fs";
@@ -11,20 +11,22 @@ import { config } from "dotenv";
 // Local dev: Load from .env.local if it exists
 const envPath = resolve(process.cwd(), "../../infra/.env.local");
 
-let isRailway = false;
+// Determine environment context for logging
+let envContext = "PRODUCTION";
 try {
   // Check if .env.local exists and is readable (local dev)
   if (existsSync(envPath)) {
     config({ path: envPath });
-    console.log(`[DEV] Loaded environment from ${envPath}`);
+    envContext = "DEV";
+    console.log(`[${envContext}] Loaded environment from ${envPath}`);
   } else {
     // .env.local doesn't exist, assume Railway (env vars already set)
-    isRailway = true;
+    envContext = "RAILWAY";
     console.log("[RAILWAY] Using Railway environment variables");
   }
 } catch (error) {
   // If we can't read .env.local, assume Railway
-  isRailway = true;
+  envContext = "RAILWAY";
   console.log("[RAILWAY] Using Railway environment variables");
 }
 
@@ -50,7 +52,7 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN!);
 const clientId = process.env.DISCORD_APP_ID!;
 const guildId = process.env.DISCORD_GUILD_ID; // Optional, for guild commands
 
-const envPrefix = isRailway ? "[RAILWAY]" : "[DEV]";
+const envPrefix = `[${envContext}]`;
 
 try {
   console.log(
