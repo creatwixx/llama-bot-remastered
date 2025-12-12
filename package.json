@@ -7,10 +7,18 @@
     "packages/*"
   ],
   "scripts": {
+    "setup": "./setup.sh",
     "dev": "./start-dev.sh",
     "build": "docker compose -f infra/docker-compose.yml build",
     "start": "docker compose -f infra/docker-compose.yml up",
     "stop": "docker compose -f infra/docker-compose.yml down",
+    "restart": "npm run stop && npm run dev",
+    "logs": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml logs -f",
+    "logs:api": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml logs -f api",
+    "logs:bot": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml logs -f bot",
+    "clean": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.dev.yml down -v",
+    "typecheck": "cd packages/llama-api && bunx tsc --noEmit && cd ../llama-bot && bunx tsc --noEmit",
+    "verify": "npm run typecheck && cd packages/llama-api && DATABASE_URL=postgresql://user:password@localhost:5432/dbname bunx prisma validate",
     "db:migrate": "cd packages/llama-api && ./migrate.sh",
     "db:migrate:docker": "cd packages/llama-api && ./migrate-docker.sh",
     "db:studio": "cd packages/llama-api && export $(cat ../../infra/.env.local | grep -v '^#' | grep -v '^$' | xargs) && bunx prisma studio",
