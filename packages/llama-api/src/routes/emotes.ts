@@ -181,9 +181,19 @@ export default async function emoteRoutes(fastify: FastifyInstance) {
       let matches = false;
 
       if (emote.exactMatch) {
+        // Exact match: entire message must equal trigger
         matches = messageLower === triggerLower;
       } else {
-        matches = messageLower.includes(triggerLower);
+        // Word boundary match: trigger must be a whole word (not part of another word or URL)
+        // Escape special regex characters in the trigger
+        const escapedTrigger = triggerLower.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+        // Use word boundaries to match whole words only
+        // \b matches word boundaries (between word characters \w and non-word characters)
+        const wordBoundaryRegex = new RegExp(`\\b${escapedTrigger}\\b`, "i");
+        matches = wordBoundaryRegex.test(message);
       }
 
       if (matches) {
