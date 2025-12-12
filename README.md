@@ -336,7 +336,7 @@ This project is **deployed on Railway**. Railway is the primary and recommended 
 
 5. **Deploy**: Push to `main` branch - Railway auto-deploys!
 
-**Note**: Railway automatically detects the Dockerfiles, so no additional configuration files are needed.
+**Note**: The `railway.json` files in `packages/llama-api/` and `packages/llama-bot/` are required to tell Railway where to find the Dockerfiles in the `infra/` directory.
 
 ### Switching to Another Provider (If Needed)
 
