@@ -179,3 +179,57 @@ Or add Watchtower to poll GHCR for you.
 `error: An invalid token was provided.` and the container restarts forever under
 `restart: unless-stopped`. The healthcheck will correctly report unhealthy rather
 than pretending everything is fine.
+
+---
+
+## The management dashboard
+
+`llama-api` also serves a web UI at `/` for managing everything the bot stores.
+
+### What it gives you
+
+- **Health tiles** for API, database and Discord bot, refreshing every 10s. The bot
+  tile is a live fetch of the bot container's own `/health`, so it goes red when the
+  bot dies rather than reporting stale state.
+- **Stats**: emote count, total uses, per-server breakdown. Guild IDs are meaningless
+  snowflakes, so you can name your servers in the UI — names are stored in your
+  browser's localStorage, not the database.
+- **Emote management**: image previews, search, filter by server and enabled state,
+  add, inline edit, enable/disable, delete.
+- **Image link checker** (`/admin/link-check`): tests every emote's image URL and
+  flags the dead ones. Worth running periodically — Discord attachment URLs
+  (`media.discordapp.net`) carry expiring `ex` / `is` / `hm` signature parameters and
+  eventually stop resolving. An emote with a dead link still triggers; it just posts
+  an empty embed, which is why this is easy to miss.
+
+### Endpoints
+
+| Route | Purpose |
+| --- | --- |
+| `GET /` | The dashboard |
+| `GET /admin/status` | Aggregated health + stats (JSON) |
+| `GET /admin/link-check` | Tests every emote image URL (JSON) |
+
+### Exposing it safely
+
+The dashboard has **no login**, and the API beneath it has no authentication — any
+device that can reach the port can delete every emote. So bind the published port to
+the box's Tailscale address rather than `0.0.0.0`:
+
+```bash
+tailscale ip -4
+```
+
+Put that address in the compose file's `REPLACE_TAILSCALE_IP` placeholder, giving
+`"100.x.y.z:3000:3000"`. Only tailnet devices can then reach it.
+
+**If that command isn't found, or the box has no `100.x` address**, Tailscale is
+probably running as a container rather than on the host — check with:
+
+```bash
+ip -4 addr | grep -w inet | grep 100\.
+```
+
+With no host-level tailnet address you cannot bind to one. Fall back to binding the
+LAN address (`"192.168.x.y:3000:3000"`), which at least keeps it off any other
+interface, and treat everything on your LAN as trusted.

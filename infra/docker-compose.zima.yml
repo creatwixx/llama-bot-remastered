@@ -29,6 +29,7 @@ services:
     image: postgres:18-alpine
     container_name: llama-postgres
     restart: unless-stopped
+    networks: [llama-net]
     environment:
       POSTGRES_USER: llama
       POSTGRES_PASSWORD: REPLACE_DB_PASSWORD
@@ -60,6 +61,7 @@ services:
     image: ghcr.io/creatwixx/llama-api:latest
     container_name: llama-api
     restart: unless-stopped
+    networks: [llama-net]
     depends_on:
       llama-postgres:
         condition: service_healthy
@@ -68,12 +70,19 @@ services:
       NODE_ENV: production
       LOG_LEVEL: info
       API_PORT: "3000"
-    # No `ports:` on purpose. This API has NO authentication — any device that can
-    # reach port 3000 can create and delete emotes. Leaving it unpublished keeps it
-    # reachable only by the bot, over this compose network.
-    # Uncomment ONLY if you want to hit it yourself over Tailscale (e.g. Uptime Kuma):
-    # ports:
-    #   - "3000:3000"
+      # Where the dashboard's "Discord bot" health tile looks.
+      BOT_HEALTH_URL: http://llama-bot:8080/health
+    # This service also serves the management dashboard at /, so its port must be
+    # published. Bind it to the box's TAILSCALE address — NOT 0.0.0.0.
+    #
+    # There is no login on the dashboard, and the API underneath it has no
+    # authentication either: anything that can reach this port can delete every
+    # emote. Binding to the tailnet address means only your Tailscale devices can
+    # open it; binding to 0.0.0.0 would expose it to every device on your LAN.
+    #
+    # Find the address on the box with:  tailscale ip -4
+    ports:
+      - "REPLACE_TAILSCALE_IP:3000:3000"
     healthcheck:
       test:
         [
@@ -99,6 +108,7 @@ services:
     image: ghcr.io/creatwixx/llama-bot:latest
     container_name: llama-bot
     restart: unless-stopped
+    networks: [llama-net]
     depends_on:
       llama-api:
         condition: service_healthy
@@ -133,3 +143,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+# Declared explicitly, with an explicit `name:`, because ZimaOS does not reliably
+# create the implicit "<project>_default" network. Without a shared user-defined
+# network the containers land on Docker's default bridge, which provides NO
+# container-name DNS — the API then dies with
+# "P1001: Can't reach database server at llama-postgres:5432".
+networks:
+  llama-net:
+    name: llama-net
+    driver: bridge
