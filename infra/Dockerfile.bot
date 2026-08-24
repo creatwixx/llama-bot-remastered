@@ -1,22 +1,48 @@
-FROM oven/bun:latest AS base
+# syntax=docker/dockerfile:1
+
+FROM oven/bun:1-debian AS base
 WORKDIR /app
 
-# Install dependencies
+# ---------------------------------------------------------------------------
+# deps: install from the ROOT lockfile (Bun workspace) for reproducible builds.
+# ---------------------------------------------------------------------------
 FROM base AS deps
-COPY packages/llama-bot/package.json packages/llama-bot/bun.lockb* ./packages/llama-bot/
-WORKDIR /app/packages/llama-bot
+COPY package.json bun.lock ./
+COPY packages/llama-api/package.json ./packages/llama-api/
+COPY packages/llama-bot/package.json ./packages/llama-bot/
 RUN bun install --frozen-lockfile
 
-# Production stage
+# ---------------------------------------------------------------------------
+# build: layer the source ON TOP of the installed tree.
+#
+# This stage is not optional. Bun's isolated install puts per-package symlinks in
+# packages/llama-bot/node_modules/ (discord.js -> ../../../node_modules/.bun/...).
+# Copying the source straight from the build context into the runner would land a
+# node_modules-less directory and the bot dies with
+# "Cannot find package 'discord.js'". COPY merges into the existing directory, so
+# doing it here preserves those symlinks.
+# ---------------------------------------------------------------------------
+FROM deps AS build
+COPY packages/llama-bot ./packages/llama-bot
+
+# ---------------------------------------------------------------------------
+# runner
+# ---------------------------------------------------------------------------
 FROM base AS runner
 ENV NODE_ENV=production
+
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/packages/llama-bot ./packages/llama-bot
+
+USER bun
 WORKDIR /app/packages/llama-bot
 
-COPY --from=deps /app/packages/llama-bot/node_modules ./node_modules
-COPY packages/llama-bot/package.json packages/llama-bot/tsconfig.json ./
-COPY packages/llama-bot/src ./src
-
+# Health server only — the Discord gateway connection is outbound, so nothing
+# needs to reach this container for the bot itself to work.
 EXPOSE 8080
 
-CMD ["bun", "src/start.ts"]
-
+# src/index.ts, not src/start.ts: index.ts already registers slash commands on
+# boot (see registerCommands()), so going through start.ts registered them twice
+# on every restart for no benefit.
+CMD ["bun", "src/index.ts"]

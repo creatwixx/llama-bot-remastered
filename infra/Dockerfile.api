@@ -1,35 +1,46 @@
-FROM oven/bun:latest AS base
+# syntax=docker/dockerfile:1
+
+# Pinned rather than :latest so a rebuild months from now produces the same image.
+# Debian (not Alpine) because Prisma's engine binaries expect glibc/OpenSSL.
+FROM oven/bun:1-debian AS base
 WORKDIR /app
 
-# Install dependencies
+# ---------------------------------------------------------------------------
+# deps: install from the ROOT lockfile so the build is reproducible.
+# This is a Bun workspace — bun.lock lives at the repo root, not in packages/.
+# ---------------------------------------------------------------------------
 FROM base AS deps
-COPY packages/llama-api/package.json packages/llama-api/bun.lockb* ./packages/llama-api/
-WORKDIR /app/packages/llama-api
-RUN bun install --frozen-lockfile --ignore-scripts
+COPY package.json bun.lock ./
+COPY packages/llama-api/package.json ./packages/llama-api/
+COPY packages/llama-bot/package.json ./packages/llama-bot/
+RUN bun install --frozen-lockfile
 
-# Build stage
-FROM base AS build
-COPY --from=deps /app/packages/llama-api/node_modules ./packages/llama-api/node_modules
-COPY packages/llama-api/package.json packages/llama-api/tsconfig.json ./packages/llama-api/
-COPY packages/llama-api/src ./packages/llama-api/src
-COPY packages/llama-api/prisma ./packages/llama-api/prisma
+# ---------------------------------------------------------------------------
+# build: generate the Prisma client (and pull the engine binaries) once.
+# ---------------------------------------------------------------------------
+FROM deps AS build
+COPY packages/llama-api ./packages/llama-api
 WORKDIR /app/packages/llama-api
 RUN bunx prisma generate
-# Add build commands if needed
-# RUN bun run build
 
-# Production stage
+# ---------------------------------------------------------------------------
+# runner
+# ---------------------------------------------------------------------------
 FROM base AS runner
 ENV NODE_ENV=production
+
+# node_modules comes from `build`, not `deps`: it carries the generated Prisma
+# client and the schema engine that `prisma migrate deploy` needs at startup.
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/packages/llama-api ./packages/llama-api
+
+COPY infra/docker-entrypoint.api.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+USER bun
 WORKDIR /app/packages/llama-api
-
-COPY --from=deps /app/packages/llama-api/node_modules ./node_modules
-COPY --from=build /app/packages/llama-api/node_modules/.prisma ./node_modules/.prisma
-COPY packages/llama-api/package.json packages/llama-api/tsconfig.json ./
-COPY packages/llama-api/src ./src
-COPY packages/llama-api/prisma ./prisma
-
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
-
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["bun", "src/server.ts"]

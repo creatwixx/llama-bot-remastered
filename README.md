@@ -303,6 +303,18 @@ Base URL: `http://localhost:3000` (local) or your Railway API URL (production)
 
 ---
 
+## 🏠 Self-hosting (ZimaOS home server)
+
+To run the bot on your own hardware instead of Railway — including restoring a
+Railway database dump — see **[docs/DEPLOY-ZIMAOS.md](docs/DEPLOY-ZIMAOS.md)**.
+
+Uses [`infra/docker-compose.zima.yml`](infra/docker-compose.zima.yml) with images
+published to GHCR by `.github/workflows/publish.yml`. Postgres runs as a container
+alongside the two services; no port forwarding or public IP is needed, because the
+Discord gateway connection is outbound-only.
+
+---
+
 ## 🚢 Deployment (Railway)
 
 This project is **deployed on Railway**. Railway is the primary and recommended deployment platform.

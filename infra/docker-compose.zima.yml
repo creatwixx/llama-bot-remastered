@@ -1,0 +1,135 @@
+# =============================================================================
+# Llama Bot — ZimaOS deployment
+# =============================================================================
+# Paste this whole file into: ZimaOS App Store -> "Install a Custom App".
+#
+# BEFORE YOU PASTE, replace these three placeholders:
+#   1. REPLACE_DB_PASSWORD  -> a long random string (appears TWICE, must match)
+#   2. REPLACE_DISCORD_TOKEN -> your bot token from discord.com/developers
+#   3. REPLACE_GUILD_ID     -> your server ID, or leave "" for global commands
+#
+# Do NOT use ${VARIABLE} syntax here. ZimaOS pastes this YAML without an
+# accompanying .env file, so any ${...} would silently resolve to an empty string.
+# Literal values only.
+#
+# There is no `build:` section and no source bind mounts on purpose: ZimaOS has no
+# checkout of this repo, so images are pulled prebuilt from GHCR (published by
+# .github/workflows/publish.yml).
+# =============================================================================
+
+name: llama-bot
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — replaces the Railway-hosted database
+  # ---------------------------------------------------------------------------
+  llama-postgres:
+    # Postgres 18 to match the version that produced railway_backup.dump
+    # (pg_dump 18.1). Restoring an 18 dump into 16 is not guaranteed to work.
+    image: postgres:18-alpine
+    container_name: llama-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: llama
+      POSTGRES_PASSWORD: REPLACE_DB_PASSWORD
+      POSTGRES_DB: llamabot
+    volumes:
+      # Mount /var/lib/postgresql, NOT /var/lib/postgresql/data. The postgres:18
+      # image sets PGDATA=/var/lib/postgresql/18/docker and declares its volume at
+      # /var/lib/postgresql. Mounting the old PG16 path leaves the real data
+      # directory inside the container layer, where it is destroyed on recreate.
+      - type: bind
+        source: /DATA/AppData/llama-bot/postgres
+        target: /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llama -d llamabot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # API — owns all database access; migrates itself on boot
+  # ---------------------------------------------------------------------------
+  llama-api:
+    image: ghcr.io/creatwixx/llama-api:latest
+    container_name: llama-api
+    restart: unless-stopped
+    depends_on:
+      llama-postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://llama:REPLACE_DB_PASSWORD@llama-postgres:5432/llamabot
+      NODE_ENV: production
+      LOG_LEVEL: info
+      API_PORT: "3000"
+    # No `ports:` on purpose. This API has NO authentication — any device that can
+    # reach port 3000 can create and delete emotes. Leaving it unpublished keeps it
+    # reachable only by the bot, over this compose network.
+    # Uncomment ONLY if you want to hit it yourself over Tailscale (e.g. Uptime Kuma):
+    # ports:
+    #   - "3000:3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "const r = await fetch('http://127.0.0.1:3000/health'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # Bot — outbound-only WebSocket to the Discord gateway
+  # ---------------------------------------------------------------------------
+  llama-bot:
+    image: ghcr.io/creatwixx/llama-bot:latest
+    container_name: llama-bot
+    restart: unless-stopped
+    depends_on:
+      llama-api:
+        condition: service_healthy
+    environment:
+      DISCORD_TOKEN: REPLACE_DISCORD_TOKEN
+      DISCORD_APP_ID: "1448249790994448384"
+      # Empty = register commands globally (up to 1h to appear).
+      # Set your server ID for instant updates.
+      DISCORD_GUILD_ID: "REPLACE_GUILD_ID"
+      API_URL: http://llama-api:3000
+      NODE_ENV: production
+      LOG_LEVEL: info
+      BOT_PORT: "8080"
+    # Published so you can check bot health over Tailscale. Safe to expose: this
+    # endpoint only returns {"status":"ok"}. Remove if you don't want it.
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "const r = await fetch('http://127.0.0.1:8080/health'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
