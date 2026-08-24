@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Llama Bot Control</title>
+<style>
+  :root {
+    --ground:#f4f5f3; --surface:#fff; --sunk:#eceeea; --border:#daddd7; --border-firm:#c3c8c0;
+    --ink:#1b1f1d; --ink-soft:#4c534c; --ink-mute:#6e756d;
+    --accent:#c4571f; --accent-ink:#963f12;
+    --ok:#3c6e47; --ok-wash:#e7f0e8;
+    --bad:#a32e24; --bad-wash:#faeae8;
+    --warn:#8a6a12;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#131614; --surface:#1b1f1d; --sunk:#232825; --border:#2d3230; --border-firm:#3d443f;
+      --ink:#e7eae5; --ink-soft:#b4bbb3; --ink-mute:#8b928a;
+      --accent:#e8763a; --accent-ink:#f09761;
+      --ok:#7fb78c; --ok-wash:#172318;
+      --bad:#e08c82; --bad-wash:#2b1614;
+      --warn:#d8b45c;
+    }
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto;padding:1.5rem 1.1rem 5rem}
+
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:.8rem;margin-bottom:1.4rem}
+  h1{font-size:1.35rem;margin:0;letter-spacing:-.02em;flex:1 1 auto}
+  h1 span{color:var(--ink-mute);font-weight:400}
+  .stamp{font-family:var(--mono);font-size:.72rem;color:var(--ink-mute)}
+
+  .dot{width:.6rem;height:.6rem;border-radius:50%;display:inline-block;flex:none}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.idle{background:var(--ink-mute)}
+
+  .grid{display:grid;gap:.7rem}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))}
+  .g4{grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))}
+
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.85rem .95rem}
+  .tile.bad{border-color:var(--bad);background:var(--bad-wash)}
+  .tile-h{display:flex;align-items:center;gap:.45rem;font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-mute);font-family:var(--mono);margin-bottom:.35rem}
+  .tile-v{font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .tile-s{font-size:.76rem;color:var(--ink-mute);font-family:var(--mono);margin-top:.15rem;overflow-wrap:anywhere}
+
+  h2{font-size:1rem;margin:2rem 0 .8rem;display:flex;align-items:center;gap:.6rem}
+  h2::after{content:"";flex:1;height:1px;background:var(--border)}
+
+  .bar{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.9rem;align-items:center}
+  input,select,button{font:inherit;font-size:.88rem;color:var(--ink);background:var(--surface);border:1px solid var(--border-firm);border-radius:5px;padding:.42rem .6rem}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  input[type=search]{flex:1 1 12rem;min-width:8rem}
+  button{cursor:pointer;background:var(--sunk)}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  label.chk{display:inline-flex;align-items:center;gap:.35rem;font-size:.85rem;color:var(--ink-soft)}
+
+  .cards{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;display:flex;flex-direction:column}
+  .card.off{opacity:.55}
+  .thumb{height:8.5rem;background:var(--sunk);display:grid;place-items:center;overflow:hidden}
+  .thumb img{max-width:100%;max-height:100%;object-fit:contain}
+  .thumb .miss{font-size:.72rem;color:var(--ink-mute);font-family:var(--mono);padding:.5rem;text-align:center}
+  .card-b{padding:.6rem .7rem;display:flex;flex-direction:column;gap:.4rem;flex:1}
+  .trig{font-weight:600;font-size:.95rem;overflow-wrap:anywhere}
+  .meta{font-size:.72rem;color:var(--ink-mute);font-family:var(--mono);display:flex;flex-wrap:wrap;gap:.5rem}
+  .pill{font-size:.66rem;font-family:var(--mono);border:1px solid var(--border-firm);border-radius:3px;padding:.05rem .3rem;color:var(--ink-mute)}
+  .pill.exact{color:var(--accent-ink);border-color:var(--accent-ink)}
+  .pill.dead{color:var(--bad);border-color:var(--bad)}
+  .card.broken{border-color:var(--bad)}
+  .acts{display:flex;gap:.35rem;margin-top:auto;padding-top:.3rem}
+  .acts button{padding:.25rem .5rem;font-size:.78rem;flex:1}
+
+  .edit{display:flex;flex-direction:column;gap:.35rem}
+  .edit input{font-size:.82rem;width:100%}
+
+  .empty{color:var(--ink-mute);font-size:.9rem;padding:1.5rem;text-align:center;border:1px dashed var(--border-firm);border-radius:6px}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:1.2rem;background:var(--ink);color:var(--ground);padding:.55rem .9rem;border-radius:5px;font-size:.85rem;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .toast.bad{background:var(--bad);color:#fff}
+  dialog{border:1px solid var(--border-firm);border-radius:8px;background:var(--surface);color:var(--ink);padding:1.1rem;max-width:26rem;width:92%}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  dialog h3{margin:0 0 .8rem;font-size:1rem}
+  .field{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.65rem}
+  .field span{font-size:.74rem;color:var(--ink-mute);font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase}
+  .rowend{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.9rem}
+  table{border-collapse:collapse;width:100%;font-size:.88rem}
+  th,td{text-align:left;padding:.45rem .6rem;border-bottom:1px solid var(--border)}
+  th{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-mute);background:var(--sunk)}
+  .tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px;background:var(--surface)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="dot idle" id="overall"></span>
+    <h1>Llama Bot <span>Control</span></h1>
+    <span class="stamp" id="stamp">connecting…</span>
+    <label class="chk"><input type="checkbox" id="auto" checked> auto-refresh</label>
+    <button id="refresh">Refresh</button>
+  </header>
+
+  <div class="grid g3" id="health"></div>
+
+  <h2>At a glance</h2>
+  <div class="grid g4" id="stats"></div>
+  <div class="tablewrap" style="margin-top:.7rem"><table id="guilds">
+    <thead><tr><th>Server</th><th>Emotes</th><th>Uses</th><th>Guild ID</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+
+  <h2>Emotes</h2>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Search triggers…">
+    <select id="guildFilter"><option value="">All servers</option></select>
+    <select id="stateFilter">
+      <option value="">Enabled &amp; disabled</option>
+      <option value="true">Enabled only</option>
+      <option value="false">Disabled only</option>
+    </select>
+    <button id="checkBtn">Check image links</button>
+    <button class="primary" id="addBtn">Add emote</button>
+  </div>
+  <div id="linkSummary"></div>
+  <div class="cards" id="emotes"></div>
+
+  <h2>Commands</h2>
+  <div class="tablewrap"><table id="commands">
+    <thead><tr><th>Name</th><th>Response</th><th>Uses</th><th>Enabled</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+
+</div>
+
+<dialog id="addDlg">
+  <h3>Add emote</h3>
+  <form method="dialog" id="addForm">
+    <label class="field"><span>Trigger</span><input name="trigger" required placeholder="egg"></label>
+    <label class="field"><span>Image URL</span><input name="imageUrl" type="url" required placeholder="https://…/image.gif"></label>
+    <label class="field"><span>Server</span><select name="guildId" id="addGuild"></select></label>
+    <label class="field"><span>Added by</span><input name="author" value="dashboard" required></label>
+    <label class="chk"><input type="checkbox" name="exactMatch"> Exact match (whole message must equal the trigger)</label>
+    <div class="rowend">
+      <button value="cancel">Cancel</button>
+      <button class="primary" id="addSubmit" value="ok">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let EMOTES = [], GUILDS = [], TIMER = null, LINKS = {};
+
+// Guild IDs are meaningless snowflakes; let the operator name them locally.
+const labels = (() => { try { return JSON.parse(localStorage.getItem("guildLabels")||"{}"); } catch { return {}; } })();
+const saveLabels = () => { try { localStorage.setItem("guildLabels", JSON.stringify(labels)); } catch {} };
+const nameOf = (id) => id === null ? "Global" : (labels[id] || "Unnamed server");
+
+function toast(msg, bad) {
+  const el = document.createElement("div");
+  el.className = "toast" + (bad ? " bad" : "");
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (res.status === 204) return null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.message || body.error || ("HTTP " + res.status));
+  return body;
+}
+
+function check(name, c) {
+  const ok = c && c.ok;
+  const d = document.createElement("div");
+  d.className = "tile" + (ok ? "" : " bad");
+  const detail = ok
+    ? (c.latencyMs != null ? c.latencyMs + " ms" : "responding")
+    : (c && c.detail ? c.detail : "no response");
+  d.innerHTML = '<div class="tile-h"><span class="dot ' + (ok ? "ok" : "bad") + '"></span>' + name + "</div>";
+  const v = document.createElement("div"); v.className = "tile-v"; v.textContent = ok ? "Healthy" : "Down";
+  const s = document.createElement("div"); s.className = "tile-s"; s.textContent = detail;
+  d.append(v, s);
+  return d;
+}
+
+function statTile(label, value, sub) {
+  const d = document.createElement("div");
+  d.className = "tile";
+  d.innerHTML = '<div class="tile-h">' + label + "</div>";
+  const v = document.createElement("div"); v.className = "tile-v"; v.textContent = value;
+  d.appendChild(v);
+  if (sub) { const s = document.createElement("div"); s.className = "tile-s"; s.textContent = sub; d.appendChild(s); }
+  return d;
+}
+
+function fmtUptime(sec) {
+  if (sec == null) return "";
+  const d = Math.floor(sec/86400), h = Math.floor(sec%86400/3600), m = Math.floor(sec%3600/60);
+  return d ? d+"d "+h+"h" : h ? h+"h "+m+"m" : m+"m";
+}
+
+async function loadStatus() {
+  try {
+    const s = await api("/admin/status");
+    const h = $("#health"); h.textContent = "";
+    h.append(check("API", s.checks.api), check("Database", s.checks.database), check("Discord bot", s.checks.bot));
+
+    $("#overall").className = "dot " + (s.healthy ? "ok" : "bad");
+    $("#stamp").textContent = "updated " + new Date(s.timestamp).toLocaleTimeString() + " · up " + fmtUptime(s.uptimeSec);
+
+    const st = $("#stats"); st.textContent = "";
+    if (s.stats) {
+      st.append(
+        statTile("Emotes", s.stats.emotes, s.stats.emotesEnabled + " enabled"),
+        statTile("Total uses", s.stats.totalUses, "since first install"),
+        statTile("Servers", s.stats.guilds.length, "with emotes"),
+        statTile("Commands", s.stats.commands, "stored")
+      );
+      GUILDS = s.stats.guilds.map(g => g.guildId);
+      const tb = $("#guilds").querySelector("tbody"); tb.textContent = "";
+      for (const g of s.stats.guilds) {
+        const tr = document.createElement("tr");
+        const c1 = document.createElement("td");
+        const inp = document.createElement("input");
+        inp.value = labels[g.guildId] || ""; inp.placeholder = "name this server";
+        inp.style.width = "11rem"; inp.style.fontSize = ".82rem";
+        inp.onchange = () => { labels[g.guildId] = inp.value.trim(); saveLabels(); syncGuildPickers(); };
+        c1.appendChild(inp);
+        const c2 = document.createElement("td"); c2.textContent = g.emotes;
+        const c3 = document.createElement("td"); c3.textContent = g.uses;
+        const c4 = document.createElement("td"); c4.style.fontFamily = "var(--mono)"; c4.style.fontSize = ".78rem";
+        c4.textContent = g.guildId === null ? "(global)" : g.guildId;
+        tr.append(c1, c2, c3, c4); tb.appendChild(tr);
+      }
+      syncGuildPickers();
+    }
+  } catch (e) {
+    $("#overall").className = "dot bad";
+    $("#stamp").textContent = "unreachable: " + e.message;
+  }
+}
+
+function syncGuildPickers() {
+  const f = $("#guildFilter"), a = $("#addGuild");
+  const keep = f.value;
+  f.textContent = ""; a.textContent = "";
+  const all = document.createElement("option"); all.value = ""; all.textContent = "All servers"; f.appendChild(all);
+  const glob = document.createElement("option"); glob.value = "__global__"; glob.textContent = "Global (all servers)"; a.appendChild(glob);
+  for (const id of GUILDS) {
+    if (id === null) continue;
+    const o1 = document.createElement("option"); o1.value = id; o1.textContent = nameOf(id) + " · " + id; f.appendChild(o1);
+    const o2 = document.createElement("option"); o2.value = id; o2.textContent = nameOf(id) + " · " + id; a.appendChild(o2);
+  }
+  f.value = keep;
+}
+
+async function loadEmotes() {
+  try {
+    const r = await api("/emotes");
+    EMOTES = r.emotes || [];
+    renderEmotes();
+  } catch (e) { toast("Could not load emotes: " + e.message, true); }
+}
+
+function renderEmotes() {
+  const q = $("#q").value.trim().toLowerCase();
+  const gf = $("#guildFilter").value;
+  const sf = $("#stateFilter").value;
+  const list = EMOTES.filter(e =>
+    (!q || e.trigger.toLowerCase().includes(q)) &&
+    (!gf || e.guildId === gf) &&
+    (sf === "" || String(e.enabled) === sf)
+  ).sort((a, b) => a.trigger.localeCompare(b.trigger));
+
+  const box = $("#emotes"); box.textContent = "";
+  if (!list.length) {
+    const d = document.createElement("div");
+    d.className = "empty"; d.style.gridColumn = "1/-1";
+    d.textContent = EMOTES.length ? "No emotes match those filters." : "No emotes yet.";
+    box.appendChild(d); return;
+  }
+  for (const e of list) box.appendChild(card(e));
+}
+
+function card(e) {
+  const c = document.createElement("div");
+  c.className = "card" + (e.enabled ? "" : " off");
+
+  const th = document.createElement("div"); th.className = "thumb";
+  const img = document.createElement("img");
+  img.loading = "lazy"; img.alt = e.trigger; img.src = e.imageUrl;
+  img.onerror = () => { th.textContent = ""; const m = document.createElement("div"); m.className = "miss"; m.textContent = "image unreachable"; th.appendChild(m); };
+  th.appendChild(img);
+
+  const b = document.createElement("div"); b.className = "card-b";
+  const t = document.createElement("div"); t.className = "trig"; t.textContent = e.trigger;
+
+  const meta = document.createElement("div"); meta.className = "meta";
+  const uses = document.createElement("span"); uses.textContent = e.useCount + " uses";
+  const who = document.createElement("span"); who.textContent = "by " + e.author;
+  meta.append(uses, who);
+  if (e.exactMatch) { const p = document.createElement("span"); p.className = "pill exact"; p.textContent = "exact"; meta.appendChild(p); }
+  const g = document.createElement("span"); g.className = "pill"; g.textContent = nameOf(e.guildId); meta.appendChild(g);
+
+  const link = LINKS[e.id];
+  if (link && !link.ok) {
+    const p = document.createElement("span");
+    p.className = "pill dead";
+    p.textContent = "link dead" + (link.status ? " · " + link.status : "");
+    p.title = "The image URL no longer resolves. Discord attachment links expire; re-upload and update the URL.";
+    meta.appendChild(p);
+    c.classList.add("broken");
+  }
+
+  const acts = document.createElement("div"); acts.className = "acts";
+  const tog = document.createElement("button");
+  tog.textContent = e.enabled ? "Disable" : "Enable";
+  tog.onclick = () => patch(e.id, { enabled: !e.enabled });
+  const ed = document.createElement("button");
+  ed.textContent = "Edit";
+  ed.onclick = () => inlineEdit(c, e);
+  const del = document.createElement("button");
+  del.className = "danger"; del.textContent = "Delete";
+  del.onclick = async () => {
+    if (!confirm('Delete emote "' + e.trigger + '"? This cannot be undone.')) return;
+    try { await api("/emotes/" + e.id, { method: "DELETE" }); toast("Deleted " + e.trigger); await refresh(); }
+    catch (err) { toast(err.message, true); }
+  };
+  acts.append(tog, ed, del);
+
+  b.append(t, meta, acts);
+  c.append(th, b);
+  return c;
+}
+
+function inlineEdit(cardEl, e) {
+  const b = cardEl.querySelector(".card-b");
+  b.textContent = "";
+  const wrap = document.createElement("div"); wrap.className = "edit";
+  const t = document.createElement("input"); t.value = e.trigger;
+  const u = document.createElement("input"); u.value = e.imageUrl; u.type = "url";
+  const ex = document.createElement("label"); ex.className = "chk";
+  const exi = document.createElement("input"); exi.type = "checkbox"; exi.checked = e.exactMatch;
+  ex.append(exi, document.createTextNode(" exact match"));
+  const acts = document.createElement("div"); acts.className = "acts";
+  const save = document.createElement("button"); save.className = "primary"; save.textContent = "Save";
+  const cancel = document.createElement("button"); cancel.textContent = "Cancel";
+  cancel.onclick = () => renderEmotes();
+  save.onclick = () => patch(e.id, { trigger: t.value.trim(), imageUrl: u.value.trim(), exactMatch: exi.checked });
+  acts.append(save, cancel);
+  wrap.append(t, u, ex, acts);
+  b.appendChild(wrap);
+}
+
+async function patch(id, data) {
+  try { await api("/emotes/" + id, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }); toast("Saved"); await refresh(); }
+  catch (e) { toast(e.message, true); }
+}
+
+async function loadCommands() {
+  const tb = $("#commands").querySelector("tbody"); tb.textContent = "";
+  try {
+    const r = await api("/commands");
+    const list = r.commands || [];
+    if (!list.length) {
+      const tr = document.createElement("tr"); const td = document.createElement("td");
+      td.colSpan = 5; td.style.color = "var(--ink-mute)";
+      td.textContent = "No stored commands. The bot's slash commands are code, not database rows — this table is for custom text commands.";
+      tr.appendChild(td); tb.appendChild(tr); return;
+    }
+    for (const c of list) {
+      const tr = document.createElement("tr");
+      for (const val of [c.name, c.response, String(c.useCount), c.enabled ? "yes" : "no"]) {
+        const td = document.createElement("td"); td.textContent = val; tr.appendChild(td);
+      }
+      const td = document.createElement("td");
+      const del = document.createElement("button"); del.className = "danger"; del.textContent = "Delete";
+      del.onclick = async () => {
+        if (!confirm('Delete command "' + c.name + '"?')) return;
+        try { await api("/commands/" + c.id, { method: "DELETE" }); await loadCommands(); } catch (e) { toast(e.message, true); }
+      };
+      td.appendChild(del); tr.appendChild(td); tb.appendChild(tr);
+    }
+  } catch (e) {
+    const tr = document.createElement("tr"); const td = document.createElement("td");
+    td.colSpan = 5; td.textContent = "Could not load: " + e.message; tr.appendChild(td); tb.appendChild(tr);
+  }
+}
+
+async function refresh() { await Promise.all([loadStatus(), loadEmotes(), loadCommands()]); }
+
+$("#checkBtn").onclick = async () => {
+  const btn = $("#checkBtn");
+  btn.disabled = true; btn.textContent = "Checking…";
+  try {
+    const r = await api("/admin/link-check");
+    LINKS = {};
+    for (const x of r.results) LINKS[x.id] = x;
+    const s = $("#linkSummary");
+    s.className = "tile" + (r.broken ? " bad" : "");
+    s.style.marginBottom = ".7rem";
+    s.textContent = r.broken
+      ? r.broken + " of " + r.total + " emote images no longer resolve. They still trigger, but post an empty embed — re-upload the image and edit the URL to fix."
+      : "All " + r.total + " emote images resolve.";
+    renderEmotes();
+  } catch (e) { toast(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = "Check image links"; }
+};
+
+$("#addBtn").onclick = () => $("#addDlg").showModal();
+$("#addForm").onsubmit = async (ev) => {
+  if (ev.submitter && ev.submitter.value === "cancel") return;
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const guild = f.get("guildId");
+  const body = {
+    trigger: String(f.get("trigger")).trim(),
+    imageUrl: String(f.get("imageUrl")).trim(),
+    author: String(f.get("author")).trim(),
+    exactMatch: f.get("exactMatch") === "on",
+    guildId: guild === "__global__" ? null : guild,
+  };
+  try {
+    await api("/emotes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    toast("Added " + body.trigger);
+    $("#addDlg").close(); ev.target.reset();
+    await refresh();
+  } catch (e) { toast(e.message, true); }
+};
+
+$("#q").oninput = renderEmotes;
+$("#guildFilter").onchange = renderEmotes;
+$("#stateFilter").onchange = renderEmotes;
+$("#refresh").onclick = refresh;
+$("#auto").onchange = (e) => { if (e.target.checked) start(); else clearInterval(TIMER); };
+function start() { clearInterval(TIMER); TIMER = setInterval(loadStatus, 10000); }
+
+refresh(); start();
+</script>
+</body>
+</html>
